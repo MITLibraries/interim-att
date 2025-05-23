@@ -5,19 +5,24 @@ name = "pypi"
 
 [packages]
 click = "*"
-sentry-sdk = "*"
+dropbox = "*"
+pandas = "*"
+types-six = "*"
 
 [dev-packages]
 black = "*"
 coveralls = "*"
 mypy = "*"
+pandas-stubs ="*"
+pip-audit = "*"
 pre-commit = "*"
 pytest = "*"
+pytest-mock = "*"
 ruff = "*"
-pip-audit = "*"
+types-requests = "*"
 
 [requires]
 python_version = "3.12"
 
 [scripts]
-my_app = "python -c \"from my_app.cli import main; main()\""
+att = "python -c \"from att.cli import cli; cli()\""
