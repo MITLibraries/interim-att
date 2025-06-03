@@ -1,6 +1,6 @@
 # Interim ATT Copy Tool
 
-The Python script for moving content from Dropbox to the Synology NAS in a secure and validated manner, acting as part of the interim replacement for the prior Archive Transfer Tool.
+A Python CLI application for moving content from Dropbox to the Synology NAS in a secure and validated manner, acting as part of the interim replacement for the prior Archive Transfer Tool.
 
 ## Pre-Requisites
 
@@ -91,7 +91,7 @@ to process a `.csv` that contains a list of files that exist in Dropbox so that 
 
 ## What this application does
 
-The application performs a few steps for the user to remove somem of the drudgery of file copying.
+The application performs a few steps for the user to remove some of the drudgery of file copying.
 
 1. It copies a single file from a folder in Dropbox to a folder on the NAS.
 1. It verifies that the Dropbox SHA256 stored in the Dropbox metadata matches the Dropbox-style SHA256 of the copied file on the NAS
