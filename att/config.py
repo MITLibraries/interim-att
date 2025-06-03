@@ -22,10 +22,10 @@ class Config:
             raise AttributeError(message)
         self.check_env_var_format()
 
-    def check_env_var_format(self) -> None:
+    def validate_folder_env_var_format(self) -> None:
         """Mathod to raise exception if an env var is not formatted correctly."""
         dropbox_folder = str(os.getenv(self.REQUIRED_ENV_VARS[2]))
-        if not (dropbox_folder[:1] == "/" and dropbox_folder[-1:] == "/"):
+        if not (dropbox_folder.startswith("/") and dropbox_folder.endswith("/")):
             message = "DROPBOX_FOLDER is missing a leading and or trailing slash"
             raise AttributeError(message)
 
