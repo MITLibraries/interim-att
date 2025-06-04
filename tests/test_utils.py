@@ -137,7 +137,7 @@ def test_create_nas_folder_no_submission_agreement_overwrite(
     overwrite = True
     response = Archive(remote_file)
     with caplog.at_level(logging.INFO):
-        response.create_nas_folder(overwrite)
+        response.create_nas_folder(overwrite=overwrite)
         assert "does not exist" in caplog.text
 
 
@@ -154,7 +154,7 @@ def test_create_nas_folder_no_submission_agreement_no_overwrite(
     overwrite = False
     response = Archive(remote_file)
     with caplog.at_level(logging.INFO):
-        response.create_nas_folder(overwrite)
+        response.create_nas_folder(overwrite=overwrite)
         assert "does not exist" in caplog.text
 
 
@@ -170,7 +170,7 @@ def test_create_nas_folder_filename_overwrite(monkeypatch, tmp_path):
     remote_file = "folder/filename.pdf"
     overwrite = True
     response = Archive(remote_file)
-    assert response.create_nas_folder(overwrite) is True
+    assert response.create_nas_folder(overwrite=overwrite) is True
 
 
 def test_create_nas_folder_filename_no_overwrite(monkeypatch, tmp_path, caplog):
@@ -186,7 +186,7 @@ def test_create_nas_folder_filename_no_overwrite(monkeypatch, tmp_path, caplog):
     overwrite = False
     response = Archive(remote_file)
     with caplog.at_level(logging.INFO):
-        response.create_nas_folder(overwrite)
+        response.create_nas_folder(overwrite=overwrite)
         assert "already exists" in caplog.text
 
 
@@ -202,7 +202,7 @@ def test_create_nas_folder_no_filename_overwrite(monkeypatch, tmp_path):
     remote_file = "folder/filename.pdf"
     overwrite = True
     response = Archive(remote_file)
-    assert response.create_nas_folder(overwrite) is True
+    assert response.create_nas_folder(overwrite=overwrite) is True
 
 
 def test_create_nas_folder_no_filename_no_overwrite(monkeypatch, tmp_path):
@@ -217,7 +217,7 @@ def test_create_nas_folder_no_filename_no_overwrite(monkeypatch, tmp_path):
     remote_file = "folder/filename.pdf"
     overwrite = False
     response = Archive(remote_file)
-    assert response.create_nas_folder(overwrite) is True
+    assert response.create_nas_folder(overwrite=overwrite) is True
 
 
 ## Tests for Dropbox actions
@@ -226,23 +226,22 @@ def test_dropbox_to_nas(monkeypatch, tmp_path, archive_nas_does_not_exist):
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     submission_agreement = tmp_path / "testfolder"
     submission_agreement.mkdir(parents=True)
-    dbx = MagicMock()
-    assert archive_nas_does_not_exist.create_nas_folder(dbx) is True
+    assert archive_nas_does_not_exist.create_nas_folder() is True
 
 
-@patch("att.utils.dropbox_sha256", return_value="mockedhash")
+@patch("att.utils.Archive.dropbox_sha256", return_value="mockedhash")
 def test_dropbox_to_nas_success(mock_sha, archive_nas_exists):
     """Test that successful copy returns a timestamp."""
     dbx = MagicMock()
     dbx.files_download.return_value = (MockMetadata(), MockResponse())
 
-    timestamp = archive_nas_exists.dropbox_to_nas(dbx)
+    timestamp = archive_nas_exists.copy_dropbox_to_nas(dbx)
 
     assert archive_nas_exists.nas_object_path.exists()
     assert timestamp == "1900-01-23T04:56:07.00000Z"
 
 
-@patch("att.utils.dropbox_sha256", return_value="wronghash")
+@patch("att.utils.Archive.dropbox_sha256", return_value="wronghash")
 def test_dropbox_to_nas_checksum_fail(mock_sha, archive_nas_exists):
     """Test that mismatch checksums raises error."""
     dbx = MagicMock()
@@ -250,7 +249,7 @@ def test_dropbox_to_nas_checksum_fail(mock_sha, archive_nas_exists):
 
     # Should raise error due to ApiError
     with pytest.raises(RuntimeError):
-        archive_nas_exists.dropbox_to_nas(dbx)
+        archive_nas_exists.copy_dropbox_to_nas(dbx)
 
 
 def test_dropbox_to_nas_apierror_file_not_found(archive_nas_exists):
@@ -274,7 +273,7 @@ def test_dropbox_to_nas_apierror_file_not_found(archive_nas_exists):
 
     # Should raise FileNotFoundError due to ApiError
     with pytest.raises(FileNotFoundError):
-        archive_nas_exists.dropbox_to_nas(dbx)
+        archive_nas_exists.copy_dropbox_to_nas(dbx)
 
 
 def test_dropbox_to_nas_apierror_other(archive_nas_exists):
@@ -294,4 +293,4 @@ def test_dropbox_to_nas_apierror_other(archive_nas_exists):
 
     # Should raise RuntimeError due to ApiError
     with pytest.raises(RuntimeError):
-        archive_nas_exists.dropbox_to_nas(dbx)
+        archive_nas_exists.copy_dropbox_to_nas(dbx)

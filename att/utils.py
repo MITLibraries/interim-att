@@ -15,28 +15,6 @@ logger = logging.getLogger(__name__)
 CONFIG = Config()
 
 
-## The "special" Dropbox-style SHA256 checksum hash
-def dropbox_sha256(file_path: Path) -> str:
-    """Generate Dropbox-SHA256 in hexdigest form.
-
-    Args:
-        file_path: The full pathlib.Path to the file on the local machine
-
-    Return:
-        string: Dropbox-specific SHA256 checksum in hexdigest form
-    """
-    hasher = DropboxContentHasher()
-    with file_path.open("rb") as f:
-        while True:
-            chunk = f.read(4096)
-            if len(chunk) == 0:
-                break
-            hasher.update(chunk)
-    logger.debug("Dropbox style SHA256 generated for %s", file_path.name)
-    return hasher.hexdigest()
-
-
-## The Archive class for the object that starts in Dropbox
 class Archive:
     """An Archive object, starting in Dropbox.
 
@@ -67,10 +45,8 @@ class Archive:
         # Set the baseline properties for the object starting with the relative
         # path and the CONFIG environment values.
         # Dropbox-specific paths
-        self.dbox_object_path = PurePosixPath(CONFIG.DROPBOX_FOLDER + remote_file)
-        self.dbox_metadata_path = PurePosixPath(
-            self.dbox_object_path.parent.as_posix() + "/default_metadata.json"
-        )
+        self.dbox_object_path = PurePosixPath(CONFIG.DROPBOX_FOLDER) / remote_file
+        self.dbox_metadata_path = self.dbox_object_path.parent / "default_metadata.json"
         self.dbox_submission_agreement_folder = self.dbox_object_path.parent.relative_to(
             CONFIG.DROPBOX_FOLDER
         ).as_posix()
@@ -81,34 +57,51 @@ class Archive:
         )
         self.nas_folder_path = (
             Path(CONFIG.NAS_FOLDER)
-            .joinpath(self.dbox_submission_agreement_folder)
-            .joinpath(self.nas_cleaned_name)
+            / self.dbox_submission_agreement_folder
+            / self.nas_cleaned_name
         )
         self.nas_object_path = self.nas_folder_path / self.dbox_object_path.name
-        self.nas_metadata_path = Path(
-            self.nas_object_path.parent.as_posix()
-            + "/"
-            + self.nas_object_path.stem
-            + "_metadata.json"
+        self.nas_metadata_path = (
+            self.nas_object_path.parent / f"{self.nas_object_path.stem}_metadata.json"
         )
-        self.nas_manifest_path = Path(
-            self.nas_object_path.parent.as_posix()
-            + "/"
-            + self.nas_object_path.stem
-            + "_manifest.txt"
+        self.nas_manifest_path = (
+            self.nas_object_path.parent / f"{self.nas_object_path.stem}_manifest.txt"
         )
 
-    def create_nas_folder(self, overwrite: bool) -> bool:  # noqa: FBT001
+    @staticmethod
+    def dropbox_sha256(file_path: Path) -> str:
+        """Generate Dropbox-SHA256 in hexdigest form.
+
+        This is the special Dropbox style SHA256 checksum.
+
+        Args:
+            file_path: The full pathlib.Path to the file on the local machine
+
+        Return:
+            string: Dropbox-specific SHA256 checksum in hexdigest form
+        """
+        hasher = DropboxContentHasher()
+        with file_path.open("rb") as f:
+            while True:
+                chunk = f.read(4096)
+                if len(chunk) == 0:
+                    break
+                hasher.update(chunk)
+        logger.debug("Dropbox style SHA256 generated for %s", file_path.name)
+        return hasher.hexdigest()
+
+    def create_nas_folder(self, *, overwrite: bool = False) -> bool:
         """Create the folder on the NAS.
 
         Check for the submission agreement folder and then check to see if the
-        "archive" has already been copied to the NAS, and then proceed.
+        "archive" has already been copied to the NAS.
 
         Args:
             overwrite: A boolean to determine if we are willing to overwrite
                 a folder on the NAS if it already exists
         Returns:
-            bool: True if folder is created (or already exists and overwrite = True)
+            bool: True if folder doesn't already exist (or already exists and
+            overwrite = True)
         """
         if not self.nas_folder_path.parent.exists():
             message = f"The Submission Agreement folder ({self.nas_folder_path.parent}) does not exist yet in the ATT/ folder"
@@ -123,13 +116,13 @@ class Archive:
         self.nas_folder_path.mkdir(mode=0o775, parents=True, exist_ok=True)
         return True
 
-    def dropbox_to_nas(self, dbx: dropbox.Dropbox) -> str:
+    def copy_dropbox_to_nas(self, dbx: dropbox.Dropbox) -> str:
         """Copy archive file from Dropbox to NAS.
 
-        Copies the file from Dropbox to the NAS and verifies that the file on the NAS has
-        the same SHA256 Dropbox-style checksum as the file in Dropbox. We don't need the
-        overwrite flag here because we've already processed that flag when we
-        created/verified the NAS folder.
+        This proceeds in three distinct steps.
+        1. Try to copy file from Dropbox.
+        2. Try to upload file to the NAS
+        3. Confirm Dropbox-style checksum for file on NAS.
 
         Args:
             dbx: The Dropbox class (authentication)
@@ -139,17 +132,9 @@ class Archive:
                 file in Dropbox. If the file is not copied successfully, return an
                 empty string.
         """
+        # 1. Download from Dropbox
         try:
             metadata, response = dbx.files_download(self.dbox_object_path.as_posix())
-
-            timestamp = metadata.client_modified.strftime("%Y-%m-%dT%H:%M:%S.00000Z")
-
-            with self.nas_object_path.open("wb") as f:
-                f.write(response.content)
-            local_dbox_sha = dropbox_sha256(self.nas_object_path)
-            if local_dbox_sha == metadata.content_hash:
-                logger.debug("The SHA256 checksums match")
-                return timestamp
         except ApiError as err:
             if err.error.is_path() and err.error.get_path().is_not_found():
                 message = "ERROR: The file %s was not found in Dropbox."
@@ -158,12 +143,32 @@ class Archive:
             message = "ERROR: %s"
             logger.info(message, err)
             raise RuntimeError(message, err) from err
-        else:
+        except:  # noqa: E722
+            message = "ERROR: unhandled Dropbox download error"
+            logger.exception(message)
+            raise RuntimeError(message) from None
+
+        timestamp = metadata.client_modified.strftime("%Y-%m-%dT%H:%M:%S.00000Z")
+
+        # 2. Upload to NAS
+        try:
+            with self.nas_object_path.open("wb") as f:
+                f.write(response.content)
+        except:  # noqa: E722
+            message = "ERROR: could not write to NAS"
+            logger.exception(message)
+            raise RuntimeError(message) from None
+
+        # 3. Validate checksum
+        local_dbox_sha = self.dropbox_sha256(self.nas_object_path)
+        if local_dbox_sha != metadata.content_hash:
             message = "ERROR: Checksum validation failed."
             logger.info(message)
             raise RuntimeError(message)
+        logger.debug("The SHA256 checksums match.")
+        return timestamp
 
-    def nas_sha_manifest(self) -> bool:
+    def create_nas_sha_manifest(self) -> bool:
         """Create manifest for Archive on NAS.
 
         Creates a standard SHA256 hexdigest for the archive file after it is copied
@@ -180,7 +185,7 @@ class Archive:
             with self.nas_manifest_path.open("w") as f:
                 f.write(f"{hash_sha256.hexdigest()}  {self.nas_object_path.name}\n")
         except:  # noqa: E722
-            logger.info("An unknown error occured.")
+            logger.exception("An unknown error occured.")
             return False
         else:
             return True
@@ -203,17 +208,16 @@ class Archive:
                 f.write(response.content)
         except ApiError as err:
             if err.error.is_path() and err.error.get_path().is_not_found():
-                logger.info(
+                logger.exception(
                     "ERROR: The file %s was not found in Dropbox.", self.dbox_object_path
                 )
             else:
-                logger.info("ERROR: %s", err)
+                logger.exception("ERROR: %s", err.error)
             return False
         else:
             return True
 
 
-# The Class for handling the .csv file passed to the cli
 class FileList:
     """A CSV object, sourced from Dropbox.
 
@@ -234,18 +238,16 @@ class FileList:
         # Set the baseline properties for the object starting with the relative
         # path and the CONFIG environment values.
         # Dropbox-specific paths
-        self.dbox_csv_path = PurePosixPath(CONFIG.DROPBOX_FOLDER + remote_csv)
-        self.dbox_metadata_path = PurePosixPath(
-            self.dbox_csv_path.parent.as_posix() + "/default_metadata.xml"
-        )
+        self.dbox_csv_path = PurePosixPath(CONFIG.DROPBOX_FOLDER) / remote_csv
+        self.dbox_metadata_path = self.dbox_csv_path.parent / "default_metadata.xml"
         self.dbox_submission_agreement_folder = self.dbox_csv_path.parent.relative_to(
-            CONFIG.DROPBOX_FOLDER
+            PurePosixPath(CONFIG.DROPBOX_FOLDER)
         ).as_posix()
 
-    def load(self, dbx: dropbox.Dropbox) -> pd.DataFrame:
+    def load_csv(self, dbx: dropbox.Dropbox) -> pd.DataFrame:
         """Load CSV content into dataframe.
 
-        Load the content of the .csv file from Dropbox into a dataframe for other
+        Load the content of the CSV file from Dropbox into a dataframe for other
         processing and updates the filename data to include the parent folder so that
         it is in the correct format for processing.
 
@@ -253,11 +255,13 @@ class FileList:
             dbx: The authenticated Dropbox session.
 
         Return:
-            pandas.DataFrame: A Pandas DataFrame with all the content from the .csv.
+            pandas.DataFrame: A Pandas DataFrame with all the content from the CSV.
         """
         metadata, response = dbx.files_download(self.dbox_csv_path.as_posix())
         csv_df = pd.read_csv(io.StringIO(response.content.decode("utf-8")))
-        csv_df.iloc[:, 0] = (
-            self.dbox_submission_agreement_folder + "/" + csv_df.iloc[:, 0].astype(str)
+        csv_df["filename"] = (
+            csv_df["filename"]
+            .astype(str)
+            .apply(lambda filename: f"{self.dbox_submission_agreement_folder}/{filename}")
         )
         return csv_df
