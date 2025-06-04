@@ -26,8 +26,8 @@ def test_config_check_required_env_vars_pass(config_instance):
     config_instance.check_required_env_vars()
 
 
-def test_config_check_env_var_format_pass(config_instance):
-    config_instance.check_env_var_format()
+def test_config_validate_env_var_format_pass(config_instance):
+    config_instance.validate_folder_env_var_format()
 
 
 def test_config_env_dot_notation():
@@ -49,21 +49,21 @@ def test_config_check_env_var_format_fail_dropbox_folder(monkeypatch):
     with pytest.raises(
         AttributeError, match="DROPBOX_FOLDER is missing a leading and or trailing slash"
     ):
-        config.check_env_var_format()
+        config.validate_folder_env_var_format()
 
 
 def test_config_check_env_var_format_fail_nas_folder_macos(monkeypatch):
     monkeypatch.setenv("NAS_FOLDER", "path/to/folder")
     config = Config()
     with pytest.raises(AttributeError, match="NAS_FOLDER is missing a trailing slash"):
-        config.check_env_var_format()
+        config.validate_folder_env_var_format()
 
 
 def test_config_check_env_var_format_fail_nas_folder_windows(monkeypatch):
     monkeypatch.setenv("NAS_FOLDER", r"C:\path\to\folder")
     config = Config()
     with pytest.raises(AttributeError, match="NAS_FOLDER is missing a trailing slash"):
-        config.check_env_var_format()
+        config.validate_folder_env_var_format()
 
 
 def test_config_check_required_env_vars_fail_missing(monkeypatch):

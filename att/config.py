@@ -20,7 +20,7 @@ class Config:
         if missing_vars:
             message = f"Missing required environment variables: {', '.join(missing_vars)}"
             raise AttributeError(message)
-        self.check_env_var_format()
+        self.validate_folder_env_var_format()
 
     def validate_folder_env_var_format(self) -> None:
         """Mathod to raise exception if an env var is not formatted correctly."""
