@@ -74,17 +74,17 @@ to verify that the application can reach out to Dropbox and that the application
 Run
 
 ```bash
-pipenv run att [--verbose] [--overwrite] file --remote_file "<relative_path_to_remote_file>"
+pipenv run att [--verbose] [--overwrite] single-file-copy --remote-file "<relative_path_to_remote_file>"
 ```
 
 to process a file that exists in Dropbox so that a checksum-validated copy of that file will be copied to the `ATT` folder in the `cdps-processing` share on the Synology along with an associated metadata file.
 
-### Multiple file copy
+### Bulk file copy
 
 Run
 
 ```bash
-pipenv run att [--verbose] [--overwrite] csv --remote_csv "<relative_path_to_remote_csv_file>"
+pipenv run att [--verbose] [--overwrite] bulk-file-copy --remote-csv "<relative_path_to_remote_csv_file>"
 ```
 
 to process a `.csv` that contains a list of files that exist in Dropbox so that checksum-validated copies of all the files listed in the `.csv` will be copied in the `ATT` folder in the `cdps-processing` share on the Synology along with a file-specific metadata files with additional data from the `.csv`.

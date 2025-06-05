@@ -18,14 +18,18 @@ CONFIG = Config()
 
 
 def validate_remote_file_format(
-    ctx: click.Context, param: str, value: str  # noqa: ARG001
+    _ctx: click.Context, _remote_file_parameter: str, remote_file_value: str
 ) -> str:
-    # the regex pattern below tries to match the format: "folder/file name.ext"
-    pattern = r"^[a-zA-Z0-9][^\/]+[\/][^\/]+\.[^\/]{3,5}$"
-    if not re.fullmatch(pattern, value):
+    """Utility function to validate input.
+
+    Validates the --remote-file input to make sure it matches the "folder/file name.ext"
+    format. It uses a regex pattern to verify that format.
+    """
+    remote_file_pattern = r"^[a-zA-Z0-9][^\/]+[\/][^\/]+\.[^\/]{3,5}$"
+    if not re.fullmatch(remote_file_pattern, remote_file_value):
         message = "Parameter not formatted as folder/file name.ext"
-        raise click.BadParameter(message, param_hint="--remote_file")
-    return value
+        raise click.BadParameter(message, param_hint="--remote-file")
+    return remote_file_value
 
 
 @click.group()
@@ -63,37 +67,38 @@ def check() -> None:
     """
     if CONFIG.WORKSPACE == "test":
         logger.debug("Test environment, do nothing.")
-    elif CONFIG.WORKSPACE == "dev":
+        return
+    if CONFIG.WORKSPACE == "dev":
         dbx = dropbox_oauth_dev()
         logger.info("Successful Dropbox API OAuth via AccessToken")
     else:
         dbx = dropbox_oauth_pkce()
         logger.info("Successful Dropbox OAuth via PKCE")
+
     if dbx.users_get_current_account().team.name == "MIT":
         logger.info("SUCCESS: Connected to MIT Dropbox")
     else:
-        logger.info("ERROR: Not connection to MIT Dropbox")
+        logger.error("ERROR: Not connected to MIT Dropbox")
 
     nas = pathlib.Path(CONFIG.NAS_FOLDER)
     if nas.exists():
         logger.info("SUCCESS: NAS Folder is connected.")
     else:
-        logger.info("ERROR: NAS Folder is not connected.")
+        logger.error("ERROR: NAS Folder is not connected.")
 
 
 @cli.command()
 @click.pass_context
 @click.option(
-    # remote_file show have format like "subfolder/filename with spaces.zip"
     "-rf",
-    "--remote_file",
+    "--remote-file",
     type=str,
     callback=validate_remote_file_format,
     required=True,
-    help="Path, starting with the subfolder name and including the full filename, including the .zip extension",
+    help="Path, starting with the subfolder name and including the full filename, including the extension (like 'subfolder/filename can contain spaces.ext')",
 )
-def file(ctx: click.Context, *, remote_file: str) -> None:
-    """The file command.
+def single_file_copy(_ctx: click.Context, *, remote_file: str) -> None:
+    """Copies a single file from Dropbox to NAS.
 
     This works on one file at a time, copying it from Dropbox to the NAS. Each file moved
     by this command will get put in its own folder in the NAS. The default metadata file
@@ -103,32 +108,31 @@ def file(ctx: click.Context, *, remote_file: str) -> None:
     files: the original file, the default metadata file, and the SHA256 manifest file.
 
     Args:
-        ctx: The click Context
         remote_file: the "folder/filename.ext" of the file to move
     Return:
         None
     """
     # Create the Archive object for the specific remote_file specified as a cli parameter
     archive = Archive(remote_file)
-    nas_ready = archive.create_nas_folder(ctx.obj["OVERWRITE"])
+    nas_ready = archive.create_nas_folder(overwrite=_ctx.obj["OVERWRITE"])
 
     # Check that everything is ready
     if nas_ready and CONFIG.WORKSPACE == "test":
         logger.debug("No OAuth to Dropbox for testing")
-    elif nas_ready and CONFIG.WORKSPACE == "dev":
+        return
+    if nas_ready and CONFIG.WORKSPACE == "dev":
         logger.debug("Dopbox API OAuth via AccessToken")
         dbx = dropbox_oauth_dev()
     elif nas_ready:
         logger.debug("Dropbox OAuth via PKCE")
         dbx = dropbox_oauth_pkce()
     else:
-        message = "NAS is not ready"
-        logger.info(message)
+        logger.error("ERROR: NAS is not ready")
         sys.exit(2)
 
     # Do the work
-    archive.dropbox_to_nas(dbx)
-    archive.nas_sha_manifest()
+    archive.copy_dropbox_to_nas(dbx)
+    archive.create_nas_sha_manifest()
     archive.download_metadata(dbx)
 
 
@@ -136,27 +140,27 @@ def file(ctx: click.Context, *, remote_file: str) -> None:
 @click.pass_context
 @click.option(
     "-rc",
-    "--remote_csv",
+    "--remote-csv",
     type=str,
     callback=validate_remote_file_format,
     required=True,
     help="Path, starting with the subfolder name and including the full CSV filename, including the .csv extension",
 )
-def csv(ctx: click.Context, *, remote_csv: str) -> None:
-    """The csv command.
+def bulk_file_copy(ctx: click.Context, *, remote_csv: str) -> None:
+    """Bulk copy files, read from a CSV, from Dropbox to the NAS.
 
-    This takes the remote .csv file as an input. It runs through the .csv, copying each
-    listed file from Dropbox to the NAS, using the file command. After the file (and the
-    metadata and the checksum manifest) are copied to the NAS, it updates the default
-    metadata file on the NAS with the information from the .csv.
+    This takes the remote CSV file as an input. It runs through the CSV, copying each
+    listed file from Dropbox to the NAS. After the file (and the metadata and the
+    checksum manifest) are copied to the NAS, it updates the default metadata file on
+    the NAS with the information from the CSV.
 
     Args:
         ctx: click Context
-        remote_csv: The "folder/filename.csv" of the .csv that lists all the files to copy
+        remote_csv: The "folder/filename.csv" of the CSV that lists all the files to copy
     Return:
         None
     """
-    listoffiles = FileList(remote_csv)
+    file_list = FileList(remote_csv)
     if CONFIG.WORKSPACE == "test":
         logger.debug("No OAuth to Dropbox for testing")
     elif CONFIG.WORKSPACE == "dev":
@@ -166,14 +170,14 @@ def csv(ctx: click.Context, *, remote_csv: str) -> None:
         logger.debug("Dropbox OAuth via PKCE")
         dbx = dropbox_oauth_pkce()
 
-    csv_df = listoffiles.load(dbx)
+    csv_df = file_list.load_csv(dbx)
 
     for _index, row in csv_df.iterrows():
         archive = Archive(row["filename"])
-        nas_ready = archive.create_nas_folder(ctx.obj["OVERWRITE"])
+        nas_ready = archive.create_nas_folder(overwrite=ctx.obj["OVERWRITE"])
         if nas_ready:
-            transferdate = archive.dropbox_to_nas(dbx)
-            archive.nas_sha_manifest()
+            transferdate = archive.copy_dropbox_to_nas(dbx)
+            archive.create_nas_sha_manifest()
             archive.download_metadata(dbx)
             with open(archive.nas_metadata_path, encoding="utf-8") as f:
                 metadata = json.load(f)
@@ -184,6 +188,5 @@ def csv(ctx: click.Context, *, remote_csv: str) -> None:
             with open(archive.nas_metadata_path.as_posix(), "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=4)
         else:
-            message = "NAS is not ready"
-            logger.info(message)
+            logger.error("ERROR: NAS is not ready")
             sys.exit(2)

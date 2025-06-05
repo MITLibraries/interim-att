@@ -27,53 +27,53 @@ def test_cli_verbose():
     """Test core att cli using --verbose flag."""
     runner = CliRunner()
     with patch("att.cli.configure_logger") as mock_config_logger:
-        runner.invoke(cli, ["--verbose", "file"])
+        runner.invoke(cli, ["--verbose", "check"])
         mock_config_logger.assert_called_once()
         assert mock_config_logger.call_args[1]["verbose"] is True
 
 
 # positive tests
-def test_remote_file_success_ext3(ctx):
+def test_remote_file_3_character_extension_success(ctx):
     response = validate_remote_file_format(ctx, "--remote_file", "folder/file name.ext")
     assert response == "folder/file name.ext"
 
 
-def test_remote_file_success_ext4(ctx):
+def test_remote_file_4_character_extension_success(ctx):
     response = validate_remote_file_format(ctx, "--remote_file", "folder/file name.exts")
     assert response == "folder/file name.exts"
 
 
-def test_remote_file_success_extra_dots(ctx):
+def test_remote_file_extra_dots_success(ctx):
     response = validate_remote_file_format(ctx, "--remote_file", "folder/file.name.exts")
     assert response == "folder/file.name.exts"
 
 
 # negative tests
-def test_remote_file_fail_leading_slash(ctx):
+def test_remote_file_leading_logs_error(ctx):
     with pytest.raises(click.BadParameter) as excinfo:
         validate_remote_file_format(ctx, "--remote_file", "/folder/file name.ext")
     assert "Parameter not formatted as folder/file name.ext" in str(excinfo)
 
 
-def test_remote_file_fail_trailing_slash(ctx):
+def test_remote_file_trailing_slash_logs_error(ctx):
     with pytest.raises(click.BadParameter) as excinfo:
         validate_remote_file_format(ctx, "--remote_file", "folder/file name.ext/")
     assert "Parameter not formatted as folder/file name.ext" in str(excinfo)
 
 
-def test_remote_file_fail_no_slash(ctx):
+def test_remote_file_no_slash_logs_error(ctx):
     with pytest.raises(click.BadParameter) as excinfo:
         validate_remote_file_format(ctx, "--remote_file", "folder.file name.ext")
     assert "Parameter not formatted as folder/file name.ext" in str(excinfo)
 
 
-def test_remote_file_fail_no_extension(ctx):
+def test_remote_file_no_extension_logs_error(ctx):
     with pytest.raises(click.BadParameter) as excinfo:
         validate_remote_file_format(ctx, "--remote_file", "folder/file name")
     assert "Parameter not formatted as folder/file name.ext" in str(excinfo)
 
 
-def test_remote_file_fail_two_slashes(ctx):
+def test_remote_file_two_slashes_logs_error(ctx):
     with pytest.raises(click.BadParameter) as excinfo:
         validate_remote_file_format(ctx, "--remote_file", "folder//file name.ext")
     assert "Parameter not formatted as folder/file name.ext" in str(excinfo)
