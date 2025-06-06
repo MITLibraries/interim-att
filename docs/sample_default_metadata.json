@@ -1,0 +1,17 @@
+{
+  "Department Name": "Full name of a department with a submission agreement",
+  "Transfer Date": "datetime_value",
+  "Beginning Year": "four_digit_year",
+  "Ending Year": "four_digit_year",
+  "Description": "Description of content",
+  "Effective date for submission agreement ": "yyyy-mm-dd",
+  "Retention schedule": "optional detail for retention",
+  "Related-Resource-ID": "id_of_related_resource",
+  "Contact-Name": "Full name",
+  "Contact-Phone-Number": "optional phone number",
+  "Contact-Email": "optional email address",
+  "Contact-Address": "campus address",
+  "Related-Resource:": "description of related resource",
+  "Copyright and licensing agreement": "type of copyright",
+  "Access restrictions": "detail on any access restrictions"
+}

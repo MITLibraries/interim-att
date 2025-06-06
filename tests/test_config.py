@@ -1,6 +1,9 @@
+# mypy: ignore-errors
 import logging
 
-from my_app.config import configure_logger, configure_sentry
+import pytest
+
+from att.config import Config, configure_logger
 
 
 def test_configure_logger_not_verbose():
@@ -19,19 +22,54 @@ def test_configure_logger_verbose():
     assert result == "Logger 'tests.test_config' configured with level=DEBUG"
 
 
-def test_configure_sentry_no_env_variable(monkeypatch):
-    monkeypatch.delenv("SENTRY_DSN", raising=False)
-    result = configure_sentry()
-    assert result == "No Sentry DSN found, exceptions will not be sent to Sentry"
+def test_config_check_required_env_vars_pass(config_instance):
+    config_instance.check_required_env_vars()
 
 
-def test_configure_sentry_env_variable_is_none(monkeypatch):
-    monkeypatch.setenv("SENTRY_DSN", "None")
-    result = configure_sentry()
-    assert result == "No Sentry DSN found, exceptions will not be sent to Sentry"
+def test_config_validate_env_var_format_pass(config_instance):
+    config_instance.validate_folder_env_var_format()
 
 
-def test_configure_sentry_env_variable_is_dsn(monkeypatch):
-    monkeypatch.setenv("SENTRY_DSN", "https://1234567890@00000.ingest.sentry.io/123456")
-    result = configure_sentry()
-    assert result == "Sentry DSN found, exceptions will be sent to Sentry with env=test"
+def test_config_env_dot_notation():
+    config = Config()
+    assert config.WORKSPACE == "test"
+
+
+# negative tests for env vars
+def test_invalid_config_attribute_raises():
+    config = Config()
+    with pytest.raises(AttributeError) as excinfo:
+        _ = config.NOT_A_REAL_VAR
+    assert "'NOT_A_REAL_VAR' not a valid configuration variable" in str(excinfo.value)
+
+
+def test_config_check_env_var_format_fail_dropbox_folder(monkeypatch):
+    monkeypatch.setenv("DROPBOX_FOLDER", "/foldername")
+    config = Config()
+    with pytest.raises(
+        AttributeError, match="DROPBOX_FOLDER is missing a leading and or trailing slash"
+    ):
+        config.validate_folder_env_var_format()
+
+
+def test_config_check_env_var_format_fail_nas_folder_macos(monkeypatch):
+    monkeypatch.setenv("NAS_FOLDER", "path/to/folder")
+    config = Config()
+    with pytest.raises(AttributeError, match="NAS_FOLDER is missing a trailing slash"):
+        config.validate_folder_env_var_format()
+
+
+def test_config_check_env_var_format_fail_nas_folder_windows(monkeypatch):
+    monkeypatch.setenv("NAS_FOLDER", r"C:\path\to\folder")
+    config = Config()
+    with pytest.raises(AttributeError, match="NAS_FOLDER is missing a trailing slash"):
+        config.validate_folder_env_var_format()
+
+
+def test_config_check_required_env_vars_fail_missing(monkeypatch):
+    monkeypatch.delenv("WORKSPACE", raising=False)
+    config = Config()
+    with pytest.raises(
+        AttributeError, match="Missing required environment variables: WORKSPACE"
+    ):
+        config.check_required_env_vars()
