@@ -90,7 +90,7 @@ class Archive:
         logger.debug("Dropbox style SHA256 generated for %s", file_path.name)
         return hasher.hexdigest()
 
-    def create_nas_folder(self, *, overwrite: bool = False) -> bool:
+    def create_nas_folder(self, *, overwrite: bool = False) -> None:
         """Create the folder on the NAS.
 
         Check for the submission agreement folder and then check to see if the
@@ -99,22 +99,20 @@ class Archive:
         Args:
             overwrite: A boolean to determine if we are willing to overwrite
                 a folder on the NAS if it already exists
-        Returns:
-            bool: True if folder doesn't already exist (or already exists and
-            overwrite = True)
         """
         if not self.nas_folder_path.parent.exists():
             message = f"The Submission Agreement folder ({self.nas_folder_path.parent}) does not exist yet in the ATT/ folder"
-            logger.info(message)
-            return False
+            logger.error(message)
+            raise FileNotFoundError(message)
+
         if self.nas_folder_path.exists() and (not overwrite):
             message = (
                 f"The target folder ({self.nas_folder_path}) already exists on the NAS."
             )
-            logger.info(message)
-            return False
+            logger.error(message)
+            raise FileExistsError(message)
+
         self.nas_folder_path.mkdir(mode=0o775, parents=True, exist_ok=True)
-        return True
 
     def copy_dropbox_to_nas(self, dbx: dropbox.Dropbox) -> str:
         """Copy archive file from Dropbox to NAS.
