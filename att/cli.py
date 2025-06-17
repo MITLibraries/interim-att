@@ -2,7 +2,6 @@ import json
 import logging
 import pathlib
 import re
-import sys
 
 import click
 
@@ -114,21 +113,18 @@ def single_file_copy(_ctx: click.Context, *, remote_file: str) -> None:
     """
     # Create the Archive object for the specific remote_file specified as a cli parameter
     archive = Archive(remote_file)
-    nas_ready = archive.create_nas_folder(overwrite=_ctx.obj["OVERWRITE"])
+    archive.create_nas_folder(overwrite=_ctx.obj["OVERWRITE"])
 
-    # Check that everything is ready
-    if nas_ready and CONFIG.WORKSPACE == "test":
+    # Different options for Dropbox authentication
+    if CONFIG.WORKSPACE == "test":
         logger.debug("No OAuth to Dropbox for testing")
         return
-    if nas_ready and CONFIG.WORKSPACE == "dev":
+    if CONFIG.WORKSPACE == "dev":
         logger.debug("Dopbox API OAuth via AccessToken")
         dbx = dropbox_oauth_dev()
-    elif nas_ready:
+    else:
         logger.debug("Dropbox OAuth via PKCE")
         dbx = dropbox_oauth_pkce()
-    else:
-        logger.error("ERROR: NAS is not ready")
-        sys.exit(2)
 
     # Do the work
     archive.copy_dropbox_to_nas(dbx)
@@ -174,19 +170,16 @@ def bulk_file_copy(ctx: click.Context, *, remote_csv: str) -> None:
 
     for _index, row in csv_df.iterrows():
         archive = Archive(row["filename"])
-        nas_ready = archive.create_nas_folder(overwrite=ctx.obj["OVERWRITE"])
-        if nas_ready:
-            transferdate = archive.copy_dropbox_to_nas(dbx)
-            archive.create_nas_sha_manifest()
-            archive.download_metadata(dbx)
-            with open(archive.nas_metadata_path, encoding="utf-8") as f:
-                metadata = json.load(f)
-            metadata["Beginning Year"] = str(row["beginning_year"])
-            metadata["Ending Year"] = str(row["ending_year"])
-            metadata["Description"] = str(row["description"])
-            metadata["Transfer Date"] = transferdate
-            with open(archive.nas_metadata_path.as_posix(), "w", encoding="utf-8") as f:
-                json.dump(metadata, f, indent=4)
-        else:
-            logger.error("ERROR: NAS is not ready")
-            sys.exit(2)
+        archive.create_nas_folder(overwrite=ctx.obj["OVERWRITE"])
+        transferdate, content_hash = archive.copy_dropbox_to_nas(dbx)
+        archive.create_nas_sha_manifest()
+        archive.download_metadata(dbx)
+        with open(archive.nas_metadata_path, encoding="utf-8") as f:
+            metadata = json.load(f)
+        metadata["Beginning Year"] = str(row["beginning_year"])
+        metadata["Ending Year"] = str(row["ending_year"])
+        metadata["Description"] = str(row["description"])
+        metadata["Transfer Date"] = transferdate
+        metadata["Dropbox SHA256"] = content_hash
+        with open(archive.nas_metadata_path.as_posix(), "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=4)

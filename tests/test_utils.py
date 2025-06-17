@@ -1,5 +1,4 @@
 # mypy: ignore-errors
-import logging
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
@@ -124,9 +123,7 @@ def test_nas_manifest_path_windows(monkeypatch):
 
 
 ## Tests for the create_nas_folder logic
-def test_create_nas_folder_no_submission_agreement_overwrite(
-    monkeypatch, tmp_path, caplog
-):
+def test_create_nas_folder_no_submission_agreement_overwrite(monkeypatch, tmp_path):
     """Test for missing Submission Agreement Folder.
 
     Verifies correct behavior if the Submission Agreement folder does not exist
@@ -134,16 +131,12 @@ def test_create_nas_folder_no_submission_agreement_overwrite(
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     remote_file = "folder/filename.pdf"
-    overwrite = True
     response = Archive(remote_file)
-    with caplog.at_level(logging.INFO):
-        response.create_nas_folder(overwrite=overwrite)
-        assert "does not exist" in caplog.text
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        response.create_nas_folder(overwrite=True)
 
 
-def test_create_nas_folder_no_submission_agreement_no_overwrite(
-    monkeypatch, tmp_path, caplog
-):
+def test_create_nas_folder_no_submission_agreement_no_overwrite(monkeypatch, tmp_path):
     """Test for missing Submission Agreement Folder.
 
     Verifies correct behavior if the Submission Agreement folder does not exist
@@ -151,73 +144,68 @@ def test_create_nas_folder_no_submission_agreement_no_overwrite(
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     remote_file = "folder/filename.pdf"
-    overwrite = False
     response = Archive(remote_file)
-    with caplog.at_level(logging.INFO):
-        response.create_nas_folder(overwrite=overwrite)
-        assert "does not exist" in caplog.text
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        response.create_nas_folder(overwrite=False)
 
 
-def test_create_nas_folder_filename_overwrite(monkeypatch, tmp_path):
-    """Test for missing Submission Agreement Folder.
+def test_create_nas_folder_clean_folder_exists_overwrite(monkeypatch, tmp_path):
+    """Test for clean target folder (overwrite=True).
 
     Verifies correct behavior if the clean target folder in the Submission
-    Agreement folder does exist (overwrite = True)
+    Agreement folder does exist and overwrite = True.
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     submission_agreement = tmp_path / "folder" / "filename"
     submission_agreement.mkdir(parents=True)
     remote_file = "folder/filename.pdf"
-    overwrite = True
     response = Archive(remote_file)
-    assert response.create_nas_folder(overwrite=overwrite) is True
+    response.create_nas_folder(overwrite=True)
 
 
-def test_create_nas_folder_filename_no_overwrite(monkeypatch, tmp_path, caplog):
-    """Test for missing Submission Agreement Folder.
+def test_create_nas_folder_clean_folder_exists_no_overwrite(
+    monkeypatch, tmp_path, caplog
+):
+    """Test for clean target folder (overwrite=False).
 
     Verifies correct behavior if the clean target folder in the Submission
-    Agreement folder does exist (overwrite = False)
+    Agreement folder does exist and overwrite = False.
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     submission_agreement = tmp_path / "folder" / "filename"
     submission_agreement.mkdir(parents=True)
     remote_file = "folder/filename.pdf"
-    overwrite = False
     response = Archive(remote_file)
-    with caplog.at_level(logging.INFO):
-        response.create_nas_folder(overwrite=overwrite)
-        assert "already exists" in caplog.text
+    with pytest.raises(FileExistsError, match="already exists"):
+        response.create_nas_folder(overwrite=False)
 
 
-def test_create_nas_folder_no_filename_overwrite(monkeypatch, tmp_path):
-    """Test for missing Submission Agreement Folder.
+def test_create_nas_folder_no_clean_folder_overwrite(monkeypatch, tmp_path):
+    """Test for no clean folder (overwrite=True).
 
     Verifies correct behavior if the Submission Agreement folder does exist
-    yet (overwrite = False)
+    yet and overwrite = True.
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     submission_agreement = tmp_path / "folder"
     submission_agreement.mkdir(parents=True)
     remote_file = "folder/filename.pdf"
-    overwrite = True
     response = Archive(remote_file)
-    assert response.create_nas_folder(overwrite=overwrite) is True
+    response.create_nas_folder(overwrite=True)
 
 
-def test_create_nas_folder_no_filename_no_overwrite(monkeypatch, tmp_path):
-    """Test for missing Submission Agreement Folder.
+def test_create_nas_folder_no_clean_folder_no_overwrite(monkeypatch, tmp_path):
+    """Test for no clean folder (overwrite=False).
 
     Verifies correct behavior if the Submission Agreement folder does exist
-    yet (overwrite = False)
+    yet and overwrite = False.
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     submission_agreement = tmp_path / "folder"
     submission_agreement.mkdir(parents=True)
     remote_file = "folder/filename.pdf"
-    overwrite = False
     response = Archive(remote_file)
-    assert response.create_nas_folder(overwrite=overwrite) is True
+    response.create_nas_folder(overwrite=False)
 
 
 ## Tests for Dropbox actions
@@ -226,22 +214,22 @@ def test_dropbox_to_nas(monkeypatch, tmp_path, archive_nas_does_not_exist):
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
     submission_agreement = tmp_path / "testfolder"
     submission_agreement.mkdir(parents=True)
-    assert archive_nas_does_not_exist.create_nas_folder() is True
+    archive_nas_does_not_exist.create_nas_folder()
 
 
-@patch("att.utils.Archive.dropbox_sha256", return_value="mockedhash")
+@patch("att.utils.Archive.nas_dropbox_sha256", return_value="mockedhash")
 def test_dropbox_to_nas_success(mock_sha, archive_nas_exists):
     """Test that successful copy returns a timestamp."""
     dbx = MagicMock()
     dbx.files_download.return_value = (MockMetadata(), MockResponse())
 
-    timestamp = archive_nas_exists.copy_dropbox_to_nas(dbx)
+    timestamp, _content_hash = archive_nas_exists.copy_dropbox_to_nas(dbx)
 
     assert archive_nas_exists.nas_object_path.exists()
     assert timestamp == "1900-01-23T04:56:07.00000Z"
 
 
-@patch("att.utils.Archive.dropbox_sha256", return_value="wronghash")
+@patch("att.utils.Archive.nas_dropbox_sha256", return_value="wronghash")
 def test_dropbox_to_nas_checksum_fail(mock_sha, archive_nas_exists):
     """Test that mismatch checksums raises error."""
     dbx = MagicMock()

@@ -13,5 +13,6 @@
   "Contact-Address": "campus address",
   "Related-Resource:": "description of related resource",
   "Copyright and licensing agreement": "type of copyright",
-  "Access restrictions": "detail on any access restrictions"
+  "Access restrictions": "detail on any access restrictions",
+  "Dropbox SHA256": "null"
 }
