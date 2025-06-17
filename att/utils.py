@@ -93,7 +93,9 @@ class Archive:
         """Create the folder on the NAS.
 
         Check for the submission agreement folder and then check to see if the
-        "archive" has already been copied to the NAS.
+        "archive" has already been copied to the NAS. Will raise an exception if the
+        target submission agreement folder doesn't exist or if the target for the archive
+        does exist and overwrite is false.
 
         Args:
             overwrite: A boolean to determine if we are willing to overwrite
