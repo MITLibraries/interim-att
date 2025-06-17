@@ -217,19 +217,19 @@ def test_dropbox_to_nas(monkeypatch, tmp_path, archive_nas_does_not_exist):
     archive_nas_does_not_exist.create_nas_folder()
 
 
-@patch("att.utils.Archive.dropbox_sha256", return_value="mockedhash")
+@patch("att.utils.Archive.nas_dropbox_sha256", return_value="mockedhash")
 def test_dropbox_to_nas_success(mock_sha, archive_nas_exists):
     """Test that successful copy returns a timestamp."""
     dbx = MagicMock()
     dbx.files_download.return_value = (MockMetadata(), MockResponse())
 
-    timestamp = archive_nas_exists.copy_dropbox_to_nas(dbx)
+    timestamp, _content_hash = archive_nas_exists.copy_dropbox_to_nas(dbx)
 
     assert archive_nas_exists.nas_object_path.exists()
     assert timestamp == "1900-01-23T04:56:07.00000Z"
 
 
-@patch("att.utils.Archive.dropbox_sha256", return_value="wronghash")
+@patch("att.utils.Archive.nas_dropbox_sha256", return_value="wronghash")
 def test_dropbox_to_nas_checksum_fail(mock_sha, archive_nas_exists):
     """Test that mismatch checksums raises error."""
     dbx = MagicMock()

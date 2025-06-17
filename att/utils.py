@@ -28,15 +28,14 @@ class Archive:
     def __init__(self, remote_file: str):
         """Initialize the object.
 
-        As part of the intialization of the object, we set a bunch of paths that
-        are needed in the various methods. This includes PurePosixPaths for the
-        "archive" in Dropbox and the associated default_metadata.json file in
-        Dropbox.
+        As part of the intialization of the object, we set a bunch of paths that are
+        needed in the various methods. This includes PurePosixPaths for the "archive" in
+        Dropbox and the associated default_metadata.json file in Dropbox.
 
-        It also includes the cleaned name (strip periods and spaces) of the
-        "archive" folder for the NAS (this is just a string) and the Path objects
-        for the "archive" on the NAS and the default_metadata.json file that this
-        tool will generate on the NAS.
+        It also includes the cleaned name (strip periods and spaces) of the "archive"
+        folder for the NAS (this is just a string) and the Path objects for the "archive"
+        on the NAS and the default_metadata.json file that this tool will generate on the
+        NAS.
 
         Args:
             remote_file (str): The relative path to the object inside the
@@ -69,13 +68,13 @@ class Archive:
         )
 
     @staticmethod
-    def dropbox_sha256(file_path: Path) -> str:
+    def nas_dropbox_sha256(file_path: Path) -> str:
         """Generate Dropbox-SHA256 in hexdigest form.
 
         This is the special Dropbox style SHA256 checksum.
 
         Args:
-            file_path: The full pathlib.Path to the file on the local machine
+            file_path: The full pathlib.Path to the file on the NAS / local machine
 
         Return:
             string: Dropbox-specific SHA256 checksum in hexdigest form
@@ -114,7 +113,7 @@ class Archive:
 
         self.nas_folder_path.mkdir(mode=0o775, parents=True, exist_ok=True)
 
-    def copy_dropbox_to_nas(self, dbx: dropbox.Dropbox) -> str:
+    def copy_dropbox_to_nas(self, dbx: dropbox.Dropbox) -> tuple[str, str]:
         """Copy archive file from Dropbox to NAS.
 
         This proceeds in three distinct steps.
@@ -126,9 +125,9 @@ class Archive:
             dbx: The Dropbox class (authentication)
 
         Returns:
-            str: if the file is copied successfully, return the timestamp of the
-                file in Dropbox. If the file is not copied successfully, return an
-                empty string.
+            tuple[str, str]: if the file is copied successfully, return the timestamp and
+            and the content_hash of the file in Dropbox. If the file is not copied
+            successfully an exception will be raised.
         """
         # 1. Download from Dropbox
         try:
@@ -158,13 +157,13 @@ class Archive:
             raise RuntimeError(message) from None
 
         # 3. Validate checksum
-        local_dbox_sha = self.dropbox_sha256(self.nas_object_path)
+        local_dbox_sha = self.nas_dropbox_sha256(self.nas_object_path)
         if local_dbox_sha != metadata.content_hash:
             message = "ERROR: Checksum validation failed."
             logger.info(message)
             raise RuntimeError(message)
         logger.debug("The SHA256 checksums match.")
-        return timestamp
+        return timestamp, metadata.content_hash
 
     def create_nas_sha_manifest(self) -> bool:
         """Create manifest for Archive on NAS.
@@ -253,7 +252,7 @@ class FileList:
             dbx: The authenticated Dropbox session.
 
         Return:
-            pandas.DataFrame: A Pandas DataFrame with all the content from the CSV.
+            pd.DataFrame: A Pandas DataFrame with all the content from the CSV.
         """
         metadata, response = dbx.files_download(self.dbox_csv_path.as_posix())
         csv_df = pd.read_csv(io.StringIO(response.content.decode("utf-8")))

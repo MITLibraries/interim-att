@@ -171,7 +171,7 @@ def bulk_file_copy(ctx: click.Context, *, remote_csv: str) -> None:
     for _index, row in csv_df.iterrows():
         archive = Archive(row["filename"])
         archive.create_nas_folder(overwrite=ctx.obj["OVERWRITE"])
-        transferdate = archive.copy_dropbox_to_nas(dbx)
+        transferdate, content_hash = archive.copy_dropbox_to_nas(dbx)
         archive.create_nas_sha_manifest()
         archive.download_metadata(dbx)
         with open(archive.nas_metadata_path, encoding="utf-8") as f:
@@ -180,5 +180,6 @@ def bulk_file_copy(ctx: click.Context, *, remote_csv: str) -> None:
         metadata["Ending Year"] = str(row["ending_year"])
         metadata["Description"] = str(row["description"])
         metadata["Transfer Date"] = transferdate
+        metadata["Dropbox SHA256"] = content_hash
         with open(archive.nas_metadata_path.as_posix(), "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=4)
