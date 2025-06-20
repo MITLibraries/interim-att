@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>MITLibraries/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "managers": ["pip_requirements", "pip_setup", "pipenv", "poetry"],
+      "enabled": false
+    },
+    {
+      "managers": ["dockerfile"],
+      "matchPackageNames": ["python"],
+      "enabled": false
+    }
+  ]
+}
