@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>MITLibraries/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["python"],
+      "allowedVersions": "<3.13"
+    },
+    {
+      "matchPackageNames": ["!python"],
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest",
+        "bump",
+        "replacement"
+      ]
+    }
+  ]
+}
