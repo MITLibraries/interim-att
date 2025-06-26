@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "local>MITLibraries/renovate-config"
+    "config:best-practices"
   ],
   "packageRules": [
     {
