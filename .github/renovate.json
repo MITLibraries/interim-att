@@ -5,12 +5,16 @@
   ],
   "packageRules": [
     {
-      "matchPackageNames": ["python"],
+      "matchPackageNames": [
+        "python"
+      ],
       "allowedVersions": "<3.13"
     },
     {
-      "matchPackageNames": ["!python"],
-      "matchPackagePatterns": ["*"],
+      "matchPackageNames": [
+        "!python",
+        "*"
+      ],
       "matchUpdateTypes": [
         "major",
         "minor",
