@@ -32,10 +32,10 @@ class Archive:
         needed in the various methods. This includes PurePosixPaths for the "archive" in
         Dropbox and the associated default_metadata.json file in Dropbox.
 
-        It also includes the cleaned name (strip periods and spaces) of the "archive"
-        folder for the NAS (this is just a string) and the Path objects for the "archive"
-        on the NAS and the default_metadata.json file that this tool will generate on the
-        NAS.
+        It also includes the cleaned name (strip periods and spaces from the filename,
+        including the extension) of the "archive" folder for the NAS (this is just a
+        string) and the Path objects for the "archive" on the NAS and the
+        default_metadata.json file that this tool will generate on the NAS.
 
         Args:
             remote_file (str): The relative path to the object inside the
@@ -51,7 +51,7 @@ class Archive:
         ).as_posix()
 
         # NAS-specific paths
-        self.nas_cleaned_name = self.dbox_object_path.stem.replace(".", "_").replace(
+        self.nas_cleaned_name = self.dbox_object_path.name.replace(".", "_").replace(
             " ", "_"
         )
         self.nas_folder_path = (

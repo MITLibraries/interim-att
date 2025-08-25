@@ -1,4 +1,5 @@
 # mypy: ignore-errors
+import datetime
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
@@ -11,8 +12,6 @@ from att.utils import Archive
 # Some mocks that are used later
 class MockMetadata:
     def __init__(self):
-        import datetime
-
         self.client_modified = datetime.datetime(1900, 1, 23, 4, 56, 7)  # noqa: DTZ001
         self.content_hash = "mockedhash"
 
@@ -45,7 +44,7 @@ def test_nas_cleaned_name():
     """Test Archive class initialization for nas_cleaned_name property."""
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
-    assert response.nas_cleaned_name == "file_name_with_spaces"
+    assert response.nas_cleaned_name == "file_name_with_spaces_pdf"
 
 
 def test_nas_folder_path_macos():
@@ -53,7 +52,7 @@ def test_nas_folder_path_macos():
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_folder_path == Path(
-        "/path/to/folder/folder/file_name_with_spaces"
+        "/path/to/folder/folder/file_name_with_spaces_pdf"
     )
 
 
@@ -62,7 +61,7 @@ def test_nas_folder_path_windows(monkeypatch):
     monkeypatch.setenv("NAS_FOLDER", "Y:/folder/")
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
-    assert response.nas_folder_path == Path("Y:/folder/folder/file_name_with_spaces")
+    assert response.nas_folder_path == Path("Y:/folder/folder/file_name_with_spaces_pdf")
 
 
 def test_nas_object_path_macos():
@@ -70,7 +69,7 @@ def test_nas_object_path_macos():
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_object_path == Path(
-        "/path/to/folder/folder/file_name_with_spaces/file name_with.spaces.pdf"
+        "/path/to/folder/folder/file_name_with_spaces_pdf/file name_with.spaces.pdf"
     )
 
 
@@ -80,7 +79,7 @@ def test_nas_object_path_windows(monkeypatch):
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_object_path == Path(
-        "Y:/folder/folder/file_name_with_spaces/file name_with.spaces.pdf"
+        "Y:/folder/folder/file_name_with_spaces_pdf/file name_with.spaces.pdf"
     )
 
 
@@ -89,7 +88,7 @@ def test_nas_metadata_path_macos():
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_metadata_path == Path(
-        "/path/to/folder/folder/file_name_with_spaces/file name_with.spaces_metadata.json"
+        "/path/to/folder/folder/file_name_with_spaces_pdf/file name_with.spaces_metadata.json"
     )
 
 
@@ -99,7 +98,7 @@ def test_nas_metadata_path_windows(monkeypatch):
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_metadata_path == Path(
-        "Y:/folder/folder/file_name_with_spaces/file name_with.spaces_metadata.json"
+        "Y:/folder/folder/file_name_with_spaces_pdf/file name_with.spaces_metadata.json"
     )
 
 
@@ -108,7 +107,7 @@ def test_nas_manifest_path_macos():
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_manifest_path == Path(
-        "/path/to/folder/folder/file_name_with_spaces/file name_with.spaces_manifest.txt"
+        "/path/to/folder/folder/file_name_with_spaces_pdf/file name_with.spaces_manifest.txt"
     )
 
 
@@ -118,7 +117,7 @@ def test_nas_manifest_path_windows(monkeypatch):
     remote_file = "folder/file name_with.spaces.pdf"
     response = Archive(remote_file)
     assert response.nas_manifest_path == Path(
-        "Y:/folder/folder/file_name_with_spaces/file name_with.spaces_manifest.txt"
+        "Y:/folder/folder/file_name_with_spaces_pdf/file name_with.spaces_manifest.txt"
     )
 
 
@@ -156,7 +155,7 @@ def test_create_nas_folder_clean_folder_exists_overwrite(monkeypatch, tmp_path):
     Agreement folder does exist and overwrite = True.
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
-    submission_agreement = tmp_path / "folder" / "filename"
+    submission_agreement = tmp_path / "folder" / "filename_pdf"
     submission_agreement.mkdir(parents=True)
     remote_file = "folder/filename.pdf"
     response = Archive(remote_file)
@@ -172,7 +171,7 @@ def test_create_nas_folder_clean_folder_exists_no_overwrite(
     Agreement folder does exist and overwrite = False.
     """
     monkeypatch.setenv("NAS_FOLDER", tmp_path.as_posix())
-    submission_agreement = tmp_path / "folder" / "filename"
+    submission_agreement = tmp_path / "folder" / "filename_pdf"
     submission_agreement.mkdir(parents=True)
     remote_file = "folder/filename.pdf"
     response = Archive(remote_file)
